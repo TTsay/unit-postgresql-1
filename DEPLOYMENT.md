@@ -54,15 +54,104 @@ git push -u origin main
 
 ### 6. 設定環境變數
 
-在 Node.js 服務的 "Environment" 頁籤中添加：
+#### 為什麼需要設定環境變數？
 
-```env
-NODE_ENV=production
-JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-SESSION_SECRET=your_super_secret_session_key_change_this_in_production
+環境變數用於存放敏感資訊和配置，避免將密鑰直接寫在程式碼中。本系統需要設定：
+
+#### 必要環境變數
+
+在 Node.js 服務的 **"Environment"** 頁籤中添加以下變數：
+
+| 變數名稱 | 值 | 用途 |
+|---------|---|------|
+| `NODE_ENV` | `production` | 啟用生產環境模式 |
+| `ZEABUR` | `true` | 標識 Zeabur 環境 (停用 SSL) |
+| `JWT_SECRET` | `您的強密碼` | JWT Token 加密密鑰 |
+| `SESSION_SECRET` | `您的強密碼` | Session 加密密鑰 |
+
+#### 詳細設定步驟
+
+1. **進入環境變數設定**
+   - 在 Zeabur 控制台選擇您的 Node.js 服務
+   - 點擊 **"Environment"** 頁籤
+   - 點擊 **"Add Environment Variable"**
+
+2. **逐一添加變數**
+   ```env
+   NODE_ENV=production
+   ZEABUR=true
+   JWT_SECRET=jW8$mK9#pL7@nR3!qS6&tY2*uX5+vC1
+   SESSION_SECRET=aB4$cD8#eF2@gH6!iJ0&kL9*mN3+oP7
+   ```
+
+#### 密鑰產生建議
+
+**方法 1: 使用 Node.js 產生**
+```javascript
+// 在本地執行以下指令產生 32 位隨機密鑰
+require('crypto').randomBytes(32).toString('hex')
 ```
 
-**重要**: 請將 JWT_SECRET 和 SESSION_SECRET 替換為強密碼！
+**方法 2: 使用命令列**
+```bash
+# macOS/Linux
+openssl rand -hex 32
+
+# 或使用 uuidgen (產生較短但安全的密鑰)
+uuidgen
+```
+
+**方法 3: 線上工具**
+- 訪問 https://www.uuidgenerator.net/
+- 或 https://passwordsgenerator.net/ (選擇 32+ 字元)
+
+#### 資料庫連線設定
+
+**重要**: 在 Zeabur 中，需要手動建立 PostgreSQL 與 Node.js 服務的連接：
+
+1. **建立服務連接**
+   - 在 Node.js 服務的 **"Variable"** 頁籤中
+   - 找到 **"Add Environment Variable"** 下方的 **"Add Service Reference"**
+   - 選擇您的 PostgreSQL 服務
+   - 這會自動產生 `DATABASE_URL` 環境變數
+
+2. **或手動設定資料庫變數**
+   
+   如果自動連接失敗，可以手動添加以下變數：
+   ```env
+   DATABASE_URL=postgresql://username:password@postgresql-host:5432/database_name
+   ```
+   
+   或使用分別的環境變數：
+   ```env
+   DB_HOST=postgresql-service-hostname
+   DB_PORT=5432
+   DB_NAME=postgres
+   DB_USER=postgres
+   DB_PASSWORD=your-database-password
+   ```
+
+#### 自動設定的環境變數
+
+以下變數由 Zeabur 自動提供：
+
+- `PORT` - 應用程式監聽埠 (Zeabur 自動分配)
+
+#### 安全注意事項
+
+⚠️ **重要提醒**:
+- 請將範例中的密鑰替換為您自己產生的強密碼
+- 密鑰至少 32 個字元，包含大小寫字母、數字和特殊符號
+- 不要在程式碼中硬編碼密鑰
+- 定期更換密鑰 (建議每 6 個月)
+
+#### 驗證設定
+
+設定完成後：
+1. 點擊 **"Save"** 儲存環境變數
+2. 等待應用程式重新部署
+3. 查看部署日誌確認無錯誤
+4. 測試登入功能確認設定正確
 
 ### 7. 等待部署完成
 
