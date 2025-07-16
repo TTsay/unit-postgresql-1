@@ -217,10 +217,43 @@ PostgreSQL Container (資料庫)
 
 ### 2. 資料庫連線失敗
 
-**檢查項目**:
-- 確認 PostgreSQL 服務正常運行
-- 檢查 `DATABASE_URL` 環境變數
-- 確認網路安全群組設定
+**常見錯誤**: `password authentication failed for user "postgres"`
+
+**解決步驟**:
+
+**Step 1: 檢查 PostgreSQL 服務資訊**
+1. 點擊 Zeabur 左側的 `postgresql` 服務
+2. 在 "Variable" 頁籤查看：
+   - `POSTGRES_USER` (通常是 `postgres`)
+   - `POSTGRES_PASSWORD` (自動產生的密碼)
+   - `POSTGRES_DB` (通常是 `postgres`)
+
+**Step 2: 設定 Node.js 服務連線**
+
+方法 A - 使用服務引用 (推薦):
+1. 在 Node.js 服務的 "Variable" 頁籤
+2. 點擊 "Add Service Reference" 
+3. 選擇 `postgresql` 服務
+4. 這會自動產生正確的 `DATABASE_URL`
+
+方法 B - 手動設定:
+```env
+DB_HOST=postgresql
+DB_PORT=5432  
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASSWORD=從PostgreSQL服務複製的密碼
+```
+
+**Step 3: 驗證連線**
+執行初始化腳本會顯示連線診斷資訊：
+```bash
+npm run init-db
+```
+
+**Step 4: 檢查服務間網路**
+- 確認兩個服務在同一個 Zeabur 專案中
+- PostgreSQL 服務狀態為 "Running"
 
 ### 3. 登入功能異常
 

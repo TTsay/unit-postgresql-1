@@ -6,12 +6,27 @@ const bcrypt = require('bcrypt');
 async function initializeDatabase() {
     console.log('開始初始化資料庫...');
     
+    // 顯示連線資訊用於診斷
+    console.log('📋 連線資訊診斷:');
+    console.log('DATABASE_URL:', process.env.DATABASE_URL ? '已設定' : '未設定');
+    console.log('DB_HOST:', process.env.DB_HOST || '未設定');
+    console.log('DB_USER:', process.env.DB_USER || '未設定');
+    console.log('DB_NAME:', process.env.DB_NAME || '未設定');
+    console.log('NODE_ENV:', process.env.NODE_ENV || '未設定');
+    console.log('ZEABUR:', process.env.ZEABUR || '未設定');
+    
     try {
+        // 測試資料庫連線
+        console.log('🔗 測試資料庫連線...');
+        await pool.query('SELECT NOW() as current_time');
+        console.log('✅ 資料庫連線測試成功');
+        
         const schemaSQL = fs.readFileSync(
             path.join(__dirname, '../database/schema.sql'), 
             'utf8'
         );
         
+        console.log('📝 執行資料庫結構建立...');
         await pool.query(schemaSQL);
         console.log('✅ 資料庫表格建立成功');
         
