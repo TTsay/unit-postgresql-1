@@ -6,8 +6,22 @@ function createDatabaseConfig() {
   // 判斷是否為 Zeabur 環境 (通常 Zeabur 不需要 SSL)
   const isZeabur = process.env.ZEABUR || process.env.DATABASE_URL?.includes('zeabur');
   
+  // 在 Zeabur 環境中，優先使用個別環境變數，因為它們更可靠
+  if (isZeabur && process.env.DB_HOST && process.env.DB_USER && process.env.DB_NAME) {
+    console.log('🔧 使用個別環境變數連線 (Zeabur 推薦)');
+    return {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: false, // Zeabur 不使用 SSL
+    };
+  }
+
   // 如果有 DATABASE_URL 環境變數，直接使用
   if (process.env.DATABASE_URL) {
+    console.log('🔧 使用 DATABASE_URL 連線');
     return {
       connectionString: process.env.DATABASE_URL,
       // Zeabur 環境不使用 SSL，其他生產環境使用 SSL
@@ -16,7 +30,8 @@ function createDatabaseConfig() {
   }
 
   // 如果沒有 DATABASE_URL，使用個別環境變數
-  if (process.env.DB_HOST && process.env.DB_USER && process.env.DB_PASSWORD && process.env.DB_NAME) {
+  if (process.env.DB_HOST && process.env.DB_USER && process.env.DB_NAME) {
+    console.log('🔧 使用個別環境變數連線');
     return {
       host: process.env.DB_HOST,
       port: process.env.DB_PORT || 5432,

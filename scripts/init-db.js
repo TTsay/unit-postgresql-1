@@ -9,6 +9,11 @@ async function initializeDatabase() {
     // 顯示連線資訊用於診斷
     console.log('📋 連線資訊診斷:');
     console.log('DATABASE_URL:', process.env.DATABASE_URL ? '已設定' : '未設定');
+    if (process.env.DATABASE_URL) {
+        // 安全地顯示 DATABASE_URL (隱藏密碼)
+        const urlMasked = process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':***@');
+        console.log('DATABASE_URL (masked):', urlMasked);
+    }
     console.log('DB_HOST:', process.env.DB_HOST || '未設定');
     console.log('DB_USER:', process.env.DB_USER || '未設定');
     console.log('DB_NAME:', process.env.DB_NAME || '未設定');
