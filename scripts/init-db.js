@@ -1,101 +1,149 @@
-const fs = require('fs');
-const path = require('path');
-const pool = require('../config/database');
-const bcrypt = require('bcrypt');
+const { Pool } = require('pg');
 
 async function initializeDatabase() {
     console.log('開始初始化資料庫...');
     
-    // 顯示連線資訊用於診斷
-    console.log('📋 連線資訊診斷:');
+    // 詳細診斷環境變數
+    console.log('📋 環境變數診斷:');
     console.log('DATABASE_URL:', process.env.DATABASE_URL ? '已設定' : '未設定');
-    if (process.env.DATABASE_URL) {
-        // 安全地顯示 DATABASE_URL (隱藏密碼)
-        const urlMasked = process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':***@');
-        console.log('DATABASE_URL (masked):', urlMasked);
-    }
     console.log('DB_HOST:', process.env.DB_HOST || '未設定');
+    console.log('DB_PORT:', process.env.DB_PORT || '未設定');
     console.log('DB_USER:', process.env.DB_USER || '未設定');
+    console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? '已設定' : '未設定');
     console.log('DB_NAME:', process.env.DB_NAME || '未設定');
-    console.log('NODE_ENV:', process.env.NODE_ENV || '未設定');
-    console.log('ZEABUR:', process.env.ZEABUR || '未設定');
     
-    try {
-        // 測試資料庫連線
-        console.log('🔗 測試資料庫連線...');
-        await pool.query('SELECT NOW() as current_time');
-        console.log('✅ 資料庫連線測試成功');
+    // 檢查 Zeabur 自動注入的變數
+    console.log('\n📋 Zeabur 自動注入變數:');
+    console.log('POSTGRES_URL:', process.env.POSTGRES_URL ? '已設定' : '未設定');
+    console.log('POSTGRES_HOST:', process.env.POSTGRES_HOST || '未設定');
+    console.log('POSTGRES_PORT:', process.env.POSTGRES_PORT || '未設定');
+    console.log('POSTGRES_USER:', process.env.POSTGRES_USER || '未設定');
+    console.log('POSTGRES_PASSWORD:', process.env.POSTGRES_PASSWORD ? '已設定' : '未設定');
+    console.log('POSTGRES_DATABASE:', process.env.POSTGRES_DATABASE || '未設定');
+
+    // 嘗試不同的連接配置
+    const connectionConfigs = [
+        {
+            name: 'POSTGRES_URL (Zeabur 自動注入)',
+            config: process.env.POSTGRES_URL ? {
+                connectionString: process.env.POSTGRES_URL,
+                ssl: false
+            } : null
+        },
+        {
+            name: 'DATABASE_URL',
+            config: process.env.DATABASE_URL ? {
+                connectionString: process.env.DATABASE_URL,
+                ssl: false
+            } : null
+        },
+        {
+            name: '個別環境變數',
+            config: {
+                host: process.env.DB_HOST || 'postgresql',
+                port: parseInt(process.env.DB_PORT || '5432'),
+                database: process.env.DB_NAME || 'postgres',
+                user: process.env.DB_USER || 'postgres',
+                password: process.env.DB_PASSWORD,
+                ssl: false
+            }
+        },
+        {
+            name: 'Zeabur 自動注入變數',
+            config: process.env.POSTGRES_HOST ? {
+                host: process.env.POSTGRES_HOST,
+                port: parseInt(process.env.POSTGRES_PORT || '5432'),
+                database: process.env.POSTGRES_DATABASE || 'postgres',
+                user: process.env.POSTGRES_USER || 'postgres',
+                password: process.env.POSTGRES_PASSWORD,
+                ssl: false
+            } : null
+        }
+    ];
+
+    for (const { name, config } of connectionConfigs) {
+        if (!config) {
+            console.log(`\n⏭️ 跳過 ${name}：配置不完整`);
+            continue;
+        }
+
+        console.log(`\n📡 測試配置: ${name}`);
         
-        const schemaSQL = fs.readFileSync(
-            path.join(__dirname, '../database/schema.sql'), 
-            'utf8'
-        );
-        
-        console.log('📝 執行資料庫結構建立...');
-        await pool.query(schemaSQL);
-        console.log('✅ 資料庫表格建立成功');
-        
-        const hashedPassword = await bcrypt.hash('admin123', 10);
-        
-        const insertAdminQuery = `
-            INSERT INTO users (username, email, password_hash, full_name, role) 
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (username) DO UPDATE SET
-                password_hash = $3,
-                updated_at = CURRENT_TIMESTAMP
-        `;
-        
-        await pool.query(insertAdminQuery, [
-            'admin',
-            'admin@example.com',
-            hashedPassword,
-            '系統管理員',
-            'admin'
-        ]);
-        console.log('✅ 管理員帳號建立/更新成功');
-        
-        const insertNewsQuery = `
-            INSERT INTO news (title, content, published, author_id) 
-            VALUES 
-                ('歡迎使用物品借用系統', '本系統提供便利的物品借用管理功能，您可以輕鬆查看可借用物品、管理借用記錄等。', true, 1),
-                ('系統使用說明', '請使用您的帳號密碼登入系統。登入後可以查看物品列表、借用物品、查看個人借用記錄等功能。', true, 1),
-                ('維護通知', '系統將於每週日凌晨 2:00-4:00 進行例行維護，期間可能無法正常使用，請見諒。', true, 1)
-            ON CONFLICT DO NOTHING
-        `;
-        
-        await pool.query(insertNewsQuery);
-        console.log('✅ 預設最新消息建立成功');
-        
-        const insertItemsQuery = `
-            INSERT INTO items (name, description, category_id, barcode, location) 
-            VALUES 
-                ('筆記型電腦 - Dell Latitude', '商用筆記型電腦，適合辦公使用', 1, 'LAPTOP001', '辦公室A區'),
-                ('投影機 - Epson EB-X05', '便攜式投影機，支援 HDMI 輸入', 1, 'PROJ001', '會議室B'),
-                ('平板電腦 - iPad', '10.9吋 iPad，適合行動辦公', 1, 'TABLET001', '辦公室A區'),
-                ('影印機 - Canon imageRUNNER', '多功能影印機，支援雙面列印', 2, 'PRINTER001', '辦公室C區'),
-                ('顯微鏡 - Nikon Eclipse', '光學顯微鏡，放大倍率 40-1000x', 3, 'MICRO001', '實驗室1'),
-                ('籃球', '標準籃球，適合室內外使用', 4, 'BALL001', '體育器材室')
-            ON CONFLICT (barcode) DO NOTHING
-        `;
-        
-        await pool.query(insertItemsQuery);
-        console.log('✅ 預設物品資料建立成功');
-        
-        console.log('\n🎉 資料庫初始化完成！');
-        console.log('📝 預設管理員帳號:');
-        console.log('   使用者名稱: admin');
-        console.log('   密碼: admin123');
-        
-    } catch (error) {
-        console.error('❌ 資料庫初始化失敗:', error);
-        process.exit(1);
-    } finally {
-        await pool.end();
+        // 安全地顯示配置（隱藏密碼）
+        const safeConfig = { ...config };
+        if (safeConfig.password) safeConfig.password = '***';
+        if (safeConfig.connectionString) {
+            safeConfig.connectionString = safeConfig.connectionString.replace(/:([^@]+)@/, ':***@');
+        }
+        console.log('配置:', JSON.stringify(safeConfig, null, 2));
+
+        try {
+            const pool = new Pool({
+                ...config,
+                connectionTimeoutMillis: 10000,
+                idleTimeoutMillis: 30000
+            });
+
+            console.log('🔗 嘗試連接...');
+            const client = await pool.connect();
+            
+            console.log('✅ 連接成功！');
+            
+            // 測試基本查詢
+            const result = await client.query('SELECT version()');
+            console.log('📊 PostgreSQL 版本:', result.rows[0].version);
+            
+            // 創建資料表
+            console.log('📝 創建資料表...');
+            
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS items (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    status VARCHAR(50) DEFAULT 'available',
+                    borrower_id INTEGER,
+                    borrowed_at TIMESTAMP,
+                    returned_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+            
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(255) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    role VARCHAR(50) DEFAULT 'user',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
+            console.log('✅ 資料表創建成功');
+            
+            client.release();
+            await pool.end();
+            
+            console.log('🎉 資料庫初始化完成');
+            return;
+            
+        } catch (error) {
+            console.log(`❌ 連線失敗:`, error.message);
+            console.log('錯誤詳情:', error.code || 'N/A');
+            continue;
+        }
     }
+    
+    console.error('\n❌ 所有連接嘗試都失敗了');
+    console.error('請檢查：');
+    console.error('1. PostgreSQL 服務是否正在運行');
+    console.error('2. 環境變數是否設定正確');
+    console.error('3. 服務之間的網路連接是否正常');
+    process.exit(1);
 }
 
 if (require.main === module) {
     initializeDatabase();
 }
 
-module.exports = initializeDatabase;
+module.exports = { initializeDatabase };
