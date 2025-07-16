@@ -53,8 +53,19 @@ async function initializeDatabase() {
             config: process.env.POSTGRES_HOST ? {
                 host: process.env.POSTGRES_HOST,
                 port: parseInt(process.env.POSTGRES_PORT || '5432'),
-                database: process.env.POSTGRES_DATABASE || 'postgres',
-                user: process.env.POSTGRES_USER || 'postgres',
+                database: process.env.POSTGRES_DATABASE || 'zeabur',
+                user: 'root', // Zeabur PostgreSQL 預設用戶通常是 root
+                password: process.env.POSTGRES_PASSWORD,
+                ssl: false
+            } : null
+        },
+        {
+            name: 'Zeabur 自動注入變數 (用戶名 zeabur)',
+            config: process.env.POSTGRES_HOST ? {
+                host: process.env.POSTGRES_HOST,
+                port: parseInt(process.env.POSTGRES_PORT || '5432'),
+                database: process.env.POSTGRES_DATABASE || 'zeabur',
+                user: 'zeabur',
                 password: process.env.POSTGRES_PASSWORD,
                 ssl: false
             } : null
@@ -71,7 +82,11 @@ async function initializeDatabase() {
         
         // 安全地顯示配置（隱藏密碼）
         const safeConfig = { ...config };
-        if (safeConfig.password) safeConfig.password = '***';
+        if (safeConfig.password) {
+            safeConfig.password = `*** (長度: ${safeConfig.password.length})`;
+        } else {
+            safeConfig.password = '未設定或空白';
+        }
         if (safeConfig.connectionString) {
             safeConfig.connectionString = safeConfig.connectionString.replace(/:([^@]+)@/, ':***@');
         }
